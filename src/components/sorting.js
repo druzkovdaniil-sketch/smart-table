@@ -7,9 +7,22 @@ export function initSorting(columns) {
 
         if (action && action.name === 'sort') {
             // @todo: #3.1 — запомнить выбранный режим сортировки
-
-            // @todo: #3.2 — сбросить сортировки остальных колонок
+action.dataset.value = sortMap[action.dataset.value];
+ field = action.dataset.field;
+ order = action.dataset.value
+           // @todo: #3.2 — сбросить сортировки остальных колонок
+           columns.forEach(column => {  
+            if (column.dataset.field !== action.dataset.field) {
+                  column.dataset.value = 'none'; 
+                     }
+});      
         } else {
+            columns.forEach(column => { 
+                if (column.dataset.value !== 'none') {
+                     field = column.dataset.field;   
+                     order = column.dataset.value;  
+                       }
+});      
             // @todo: #3.3 — получить выбранный режим сортировки
         }
 

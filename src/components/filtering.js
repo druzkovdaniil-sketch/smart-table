@@ -1,8 +1,4 @@
-
 import { createComparison, defaultRules } from "../lib/compare.js";
-
-// @todo: #4.3 — настроить компаратор
-const compare = createComparison(defaultRules);
 
 export function initFiltering(elements, indexes) {
     console.log('initFiltering вызван', { elements, indexes });
@@ -16,33 +12,47 @@ export function initFiltering(elements, indexes) {
                 return;
             }
             
-            const indexValues = Object.values(indexes[elementName]);
-            const options = indexValues.map(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                return option;
-            });
+            // Получаем значения для этого поля
+            const values = indexes[elementName];
+            if (!Array.isArray(values)) {
+                console.warn(`Значения для ${elementName} не массив:`, values);
+                return;
+            }
             
-            const emptyOption = document.createElement('option');
-            emptyOption.value = '';
-            emptyOption.textContent = 'Выберите...';
-            selectElement.append(emptyOption, ...options);
+            // Очищаем существующие опции (кроме первой пустой)
+            selectElement.innerHTML = '<option value="">—</option>';
+            
+            // Добавляем новые опции
+            values.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                selectElement.appendChild(option);
+            });
         });
 
+    // @todo: #4.3 — настроить компаратор
+    const compare = createComparison(defaultRules);
+
     return function applyFiltering(data, state, action) {
-        console.log('applyFiltering вызван', { data, state, action });
+        console.log('applyFiltering вызван', { 
+            dataLength: data.length, 
+            state, 
+            action 
+        });
         
         // @todo: #4.2 — обработать очистку поля
         if (action && action.name === 'clear') {
             const field = action.dataset.field;
             if (field) {
                 const parent = action.closest('[data-field]') || action.parentElement;
-                const input = parent.querySelector('input, select');
+                // Ищем input или select в родительском элементе
+                const input = parent.querySelector('input') || parent.querySelector('select');
                 
                 if (input) {
                     input.value = '';
                     
+                    // Очищаем соответствующее поле в state
                     if (state && state[field] !== undefined) {
                         state[field] = '';
                     }
@@ -51,6 +61,21 @@ export function initFiltering(elements, indexes) {
         }
 
         // @todo: #4.5 — отфильтровать данные используя компаратор
-        return data.filter(row => compare(row, state));
+        const filtered = data.filter(row => {
+            try {
+                return compare(row, state);
+            } catch (error) {
+                console.error('Ошибка сравнения:', error, { row, state });
+                return true; // если ошибка - оставляем строку
+            }
+        });
+        
+        console.log('Фильтрация:', { 
+            было: data.length, 
+            стало: filtered.length,
+            state 
+        });
+        
+        return filtered;
     };
 }

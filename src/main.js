@@ -11,9 +11,12 @@ import { initTable } from "./components/table.js";
 import { initPagination } from './components/pagination.js';
 
 import { initSorting } from './components/sorting.js';
-
+import { initSearching } from './components/searching.js';
 // Исходные данные используемые в render()
 const { data, ...indexes } = initData(sourceData);
+const filterIndexes = {
+    searchBySeller: Object.values(indexes.sellers) 
+};
 
 /**
  * Сбор и обработка полей из таблицы
@@ -39,6 +42,7 @@ function render(action) {
     let state = collectState(); 
     let result = [...data]; 
     
+    result = applySearching(result, state, action);
     result = applyFiltering(result, state, action);  
     result = applySorting(result, state, action);    
     result = applyPagination(result, state, action); 
@@ -49,7 +53,7 @@ function render(action) {
 const sampleTable = initTable({
     tableTemplate: 'table',
     rowTemplate: 'row',
-    before: ['header', 'filter'],
+    before: ['search','header', 'filter'],
     after: ['pagination']
 }, render);
 
@@ -70,9 +74,9 @@ const applySorting = initSorting([
     sampleTable.header.elements.sortByDate,
     sampleTable.header.elements.sortByTotal
 ]);
+const applySearching = initSearching('search');
 
-
-const applyFiltering = initFiltering(sampleTable.filter.elements, indexes);
+const applyFiltering = initFiltering(sampleTable.filter.elements, filterIndexes);
 
 const appRoot = document.querySelector('#app');
 appRoot.appendChild(sampleTable.container);

@@ -82,3 +82,5 @@ const appRoot = document.querySelector('#app');
 appRoot.appendChild(sampleTable.container);
 
 render();
+
+

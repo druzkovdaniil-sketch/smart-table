@@ -83,4 +83,5 @@ appRoot.appendChild(sampleTable.container);
 
 render();
 
+// какая то хрень с гитом
 

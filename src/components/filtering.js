@@ -1,4 +1,3 @@
-
 export function initFiltering(elements) {
     const updateIndexes = (elements, indexes) => {
         Object.keys(indexes).forEach((elementName) => {
@@ -17,6 +16,15 @@ export function initFiltering(elements) {
     };
 
     const applyFiltering = (query, state, action) => {
+        console.log('applyFiltering called with action:', action?.target?.name);
+
+        // При изменении фильтра сбрасываем страницу на 1
+        if (action && action.target && 
+            (action.target.name === 'searchBySeller' || 
+             action.target.name === 'totalFrom' || 
+             action.target.name === 'totalTo')) {
+            query = { ...query, page: 1 };
+        }
 
         if (action && action.target && action.target.classList.contains('clear-button')) {
             const field = action.target.dataset.field;
@@ -32,10 +40,17 @@ export function initFiltering(elements) {
                 if (elements[key].name === 'searchBySeller') {
                     filter['filter[seller]'] = elements[key].value;
                 }
-
+                // Добавляем фильтры по числам если они есть
+                if (elements[key].name === 'totalFrom') {
+                    filter['filter[totalFrom]'] = elements[key].value;
+                }
+                if (elements[key].name === 'totalTo') {
+                    filter['filter[totalTo]'] = elements[key].value;
+                }
             }
         });
 
+        console.log('Filter result:', filter);
         return Object.keys(filter).length > 0 
             ? { ...query, ...filter } 
             : query;

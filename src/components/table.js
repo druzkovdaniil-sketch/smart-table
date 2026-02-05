@@ -1,65 +1,54 @@
-import {cloneTemplate} from "../lib/utils.js";
+import { cloneTemplate } from "../lib/utils.js";
 
 /**
- * Инициализирует таблицу и вызывает коллбэк при любых изменениях и нажатиях на кнопки
- *
  * @param {Object} settings
  * @param {(action: HTMLButtonElement | undefined) => void} onAction
  * @returns {{container: Node, elements: *, render: render}}
  */
 export function initTable(settings, onAction) {
-    const {tableTemplate, rowTemplate, before, after} = settings;
-    const root = cloneTemplate(tableTemplate);
+  const { tableTemplate, rowTemplate, before, after } = settings;
+  const root = cloneTemplate(tableTemplate);
+  if (before) {
+    before.reverse().forEach((subName) => {
+      root[subName] = cloneTemplate(subName);
+      root.container.prepend(root[subName].container);
+    });
+  }
 
-    // @todo: #1.2 — вывести дополнительные шаблоны до и после таблицы
-    if (before) {
-        before.reverse().forEach(subName => {
-            root[subName] = cloneTemplate(subName);
-            root.container.prepend(root[subName].container);
-        });
+  if (after) {
+    after.forEach((subName) => {
+      root[subName] = cloneTemplate(subName);
+      root.container.append(root[subName].container);
+    });
+  }
+  root.container.addEventListener("change", (event) => {
+    onAction(event);
+  });
+
+  root.container.addEventListener("reset", () => {
+    setTimeout(() => onAction());
+  });
+
+  root.container.addEventListener("submit", (e) => {
+    e.preventDefault();
+    onAction(e.submitter);
+  });
+  root.container.addEventListener("click", (event) => {
+    if (event.target.tagName === "TH") {
+      onAction(event);
     }
-    
-    if (after) {
-        after.forEach(subName => {
-            root[subName] = cloneTemplate(subName);
-            root.container.append(root[subName].container);
-        });
-    }
-
-    // Обработка событий
-    root.container.addEventListener('change', (event) => {
-        onAction(event);
-    });
-
-    root.container.addEventListener('reset', () => {
-        setTimeout(() => onAction());
-    });
-
-    root.container.addEventListener('submit', (e) => {
-        e.preventDefault();
-        onAction(e.submitter);
-    });
-
-    // ДОБАВЛЯЕМ обработку кликов по заголовкам таблицы
-    root.container.addEventListener('click', (event) => {
-        if (event.target.tagName === 'TH') {
-            onAction(event);
+  });
+  const render = (data) => {
+    const nextRows = data.map((item) => {
+      const row = cloneTemplate(rowTemplate);
+      Object.keys(item).forEach((key) => {
+        if (key in row.elements) {
+          row.elements[key].textContent = item[key];
         }
+      });
+      return row.container;
     });
-
-    const render = (data) => {
-        // @todo: #1.1 — преобразовать данные в массив строк на основе шаблона rowTemplate
-        const nextRows = data.map(item => {
-            const row = cloneTemplate(rowTemplate);
-            Object.keys(item).forEach(key => {
-                if (key in row.elements) {
-                    row.elements[key].textContent = item[key];
-                }
-            });
-            return row.container;
-        });
-        root.elements.rows.replaceChildren(...nextRows);
-    }
-
-    return {...root, render};
+    root.elements.rows.replaceChildren(...nextRows);
+  };
+  return { ...root, render };
 }

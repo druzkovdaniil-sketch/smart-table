@@ -1,22 +1,25 @@
 export const initSorting = (columns) => {
   return (query, state, action) => {
-    if (action && action.target.tagName === "TH") {
+    if (action && action.target && action.target.tagName === "TH") {
       const field = action.target.dataset.field;
-      const currentOrder = state.sortOrder;
+      if (!field) return query;
+
+      const currentOrder = action.target.dataset.order || "none";
       let nextOrder = "asc";
 
-      if (field === state.sortField) {
-        if (currentOrder === "asc") nextOrder = "desc";
-        else if (currentOrder === "desc") nextOrder = "none";
+      if (currentOrder === "asc") {
+        nextOrder = "desc";
+      } else if (currentOrder === "desc") {
+        nextOrder = "none";
       }
 
       columns.forEach((col) => {
-        if (col.dataset.field === field) {
-          col.dataset.order = nextOrder;
-        } else {
-          col.dataset.order = "none";
-        }
+        col.dataset.order = "none";
       });
+
+      if (nextOrder !== "none") {
+        action.target.dataset.order = nextOrder;
+      }
     }
 
     const sortColumn = Array.from(

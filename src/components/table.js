@@ -8,6 +8,7 @@ import { cloneTemplate } from "../lib/utils.js";
 export function initTable(settings, onAction) {
   const { tableTemplate, rowTemplate, before, after } = settings;
   const root = cloneTemplate(tableTemplate);
+
   if (before) {
     before.reverse().forEach((subName) => {
       root[subName] = cloneTemplate(subName);
@@ -21,6 +22,7 @@ export function initTable(settings, onAction) {
       root.container.append(root[subName].container);
     });
   }
+
   root.container.addEventListener("change", (event) => {
     onAction(event);
   });
@@ -31,13 +33,16 @@ export function initTable(settings, onAction) {
 
   root.container.addEventListener("submit", (e) => {
     e.preventDefault();
-    onAction(e.submitter);
+    console.log("Submit event triggered, button:", e.submitter?.name);
+    onAction(e);
   });
+
   root.container.addEventListener("click", (event) => {
     if (event.target.tagName === "TH") {
       onAction(event);
     }
   });
+
   const render = (data) => {
     const nextRows = data.map((item) => {
       const row = cloneTemplate(rowTemplate);
@@ -50,5 +55,6 @@ export function initTable(settings, onAction) {
     });
     root.elements.rows.replaceChildren(...nextRows);
   };
+
   return { ...root, render };
 }

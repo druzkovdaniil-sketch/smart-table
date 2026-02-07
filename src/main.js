@@ -7,6 +7,7 @@ import { initTable } from "./components/table.js";
 import { initPagination } from "./components/pagination.js";
 import { initSorting } from "./components/sorting.js";
 import { initSearching } from "./components/searching.js";
+
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -25,41 +26,46 @@ function collectState() {
   const state = processFormData(new FormData(sampleTable.container));
   const rowsPerPage = parseInt(state.rowsPerPage) || 10;
   const page = parseInt(state.page) || 1;
-  const sortHeader = Array.from(
-    document.querySelectorAll("th[data-field]"),
-  ).find((th) => th.dataset.order && th.dataset.order !== "none");
 
   return {
     ...state,
     rowsPerPage,
     page,
-    sortField: sortHeader ? sortHeader.dataset.field : null,
-    sortOrder: sortHeader ? sortHeader.dataset.order : "none",
   };
 }
 
 async function render(action) {
   console.log("=== RENDER START ===");
-  console.log("Action:", action?.target?.name, "=", action?.target?.value);
+  console.log("Action:", action);
+
   let state = collectState();
-  if (action && action.target) {
-    const name = action.target.name;
-    if (
-      name === "rowsPerPage" ||
-      name === "searchBySeller" ||
-      name === "totalFrom" ||
-      name === "totalTo"
-    ) {
+
+  if (
+    action &&
+    action.buttonName &&
+    !["first", "prev", "next", "last", "page"].includes(action.buttonName)
+  ) {
+    const resetFields = [
+      "search",
+      "date",
+      "customer",
+      "seller",
+      "totalFrom",
+      "totalTo",
+      "rowsPerPage",
+      "clear",
+    ];
+
+    if (resetFields.includes(action.buttonName)) {
       state.page = 1;
-      const pageInput = document.querySelector('input[name="page"]');
-      if (pageInput) {
-        pageInput.value = 1;
+      if (sampleTable.pagination.elements.page) {
+        sampleTable.pagination.elements.page.value = 1;
       }
-      console.log("Reset page to 1 because of:", name);
+      console.log("Reset page to 1 because of:", action.buttonName);
     }
   }
 
-  console.log("state:", state);
+  console.log("Current state:", state);
   let query = {};
 
   query = applySearching(query, state, action);
@@ -128,144 +134,124 @@ async function init() {
     );
     applyFiltering = initFilteringFunc;
 
-    const indexesToUpdate = {}; // важно
-
     updateIndexes(sampleTable.filter.elements, {
       searchBySeller: indexes.sellers,
     });
-    if (sampleTable.filter.elements.searchBySeller) {
-      indexesToUpdate.searchBySeller = indexes.sellers;
+
+    if (sampleTable.pagination.elements.page) {
+      sampleTable.pagination.elements.page.value = 1;
     }
 
-    if (sampleTable.filter.elements.searchByCustomer) {
-      indexesToUpdate.searchByCustomer = indexes.customers;
+    if (
+      sampleTable.pagination.elements.rowsPerPage &&
+      !sampleTable.pagination.elements.rowsPerPage.value
+    ) {
+      sampleTable.pagination.elements.rowsPerPage.value = 10;
     }
 
-    console.log("Search elements:", sampleTable.search.elements);
-    console.log("Filter elements:", sampleTable.filter.elements);
-    console.log("Pagination elements:", sampleTable.pagination.elements);
-    const pageInput = document.querySelector('input[name="page"]');
-    if (pageInput) {
-      pageInput.value = 1;
-      console.log("Set initial page to 1");
-    }
+    console.log("Setting up pagination button handlers...");
 
-    const rowsPerPageSelect = document.querySelector(
-      'select[name="rowsPerPage"]',
-    );
-    if (rowsPerPageSelect && !rowsPerPageSelect.value) {
-      rowsPerPageSelect.value = 10;
-      console.log("Set initial rowsPerPage to 10");
-    }
-    if (sampleTable.search.elements.search) {
-      sampleTable.search.elements.search.addEventListener(
-        "input",
-        debounce(() => {
-          console.log("Search input changed");
-          render();
-        }, 500),
-      );
-    }
-    if (sampleTable.filter.elements.searchBySeller) {
-      sampleTable.filter.elements.searchBySeller.addEventListener(
-        "change",
-        (event) => {
-          console.log("Filter seller changed");
-          render(event);
-        },
-      );
-    }
-    const paginationButtons = ["first", "prev", "next", "last"];
-    paginationButtons.forEach((buttonName) => {
-      const button = sampleTable.pagination.elements[buttonName];
+    const paginationContainer = sampleTable.pagination.container;
+
+    const setupButton = (buttonName, selector) => {
+      const button = paginationContainer.querySelector(selector);
       if (button) {
-        button.addEventListener("click", (event) => {
-          console.log(`${buttonName} button clicked`);
-          render(event);
+        console.log(`Found ${buttonName} button`);
+
+        button.addEventListener("click", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          console.log(`${buttonName} button clicked!`);
+
+          if (buttonName === "last") {
+            try {
+              const state = collectState();
+              const tempQuery = { limit: state.rowsPerPage, page: 1 };
+              const { total } = await api.getRecords(tempQuery);
+              const totalPages = Math.ceil(total / state.rowsPerPage);
+
+              if (sampleTable.pagination.elements.page) {
+                sampleTable.pagination.elements.page.value = totalPages;
+              }
+
+              render({
+                buttonName: "last",
+                buttonValue: "last",
+                totalPages: totalPages,
+              });
+            } catch (error) {
+              console.error("Error getting total pages:", error);
+            }
+          } else {
+            render({
+              buttonName: buttonName,
+              buttonValue: buttonName,
+            });
+          }
         });
+
+        return button;
+      }
+      return null;
+    };
+
+    const firstButton = setupButton(
+      "first",
+      '[data-name="firstPage"], button[name="first"]',
+    );
+    const prevButton = setupButton(
+      "prev",
+      '[data-name="previousPage"], button[name="prev"]',
+    );
+    const nextButton = setupButton(
+      "next",
+      '[data-name="nextPage"], button[name="next"]',
+    );
+    const lastButton = setupButton(
+      "last",
+      '[data-name="lastPage"], button[name="last"]',
+    );
+
+    paginationContainer.addEventListener("click", (event) => {
+      const pageRadio = event.target.closest('input[name="page"]');
+      const pageLabel = event.target.closest("label.pagination-button");
+
+      if (pageRadio || pageLabel) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const radio =
+          pageRadio || pageLabel?.querySelector('input[name="page"]');
+        if (radio) {
+          console.log("Page number clicked:", radio.value);
+          radio.checked = true;
+
+          render({
+            target: radio,
+            buttonName: "page",
+            buttonValue: radio.value,
+          });
+        }
       }
     });
-    if (sampleTable.pagination.elements.page) {
-      sampleTable.pagination.elements.page.addEventListener(
-        "change",
-        (event) => {
-          console.log("Page input changed");
-          render(event);
-        },
-      );
-    }
-    if (sampleTable.pagination.elements.rowsPerPage) {
-      sampleTable.pagination.elements.rowsPerPage.addEventListener(
-        "change",
-        (event) => {
-          console.log("Rows per page changed");
-          render(event);
-        },
-      );
-    }
-    if (sampleTable.header.elements.sortByDate) {
-      sampleTable.header.elements.sortByDate.addEventListener(
-        "click",
-        (event) => {
-          console.log("Sort by date clicked");
-          render(event);
-        },
-      );
-    }
-    if (sampleTable.header.elements.sortByTotal) {
-      sampleTable.header.elements.sortByTotal.addEventListener(
-        "click",
-        (event) => {
-          console.log("Sort by total clicked");
-          render(event);
-        },
-      );
-    }
-    const clearButton =
-      sampleTable.filter.container.querySelector(".clear-button");
-    if (clearButton) {
-      clearButton.addEventListener("click", (event) => {
-        console.log("Clear button clicked");
-        render(event);
+
+    const rowsPerPageSelect = paginationContainer.querySelector(
+      'select[name="rowsPerPage"]',
+    );
+    if (rowsPerPageSelect) {
+      rowsPerPageSelect.addEventListener("change", (event) => {
+        console.log("Rows per page changed:", event.target.value);
+        render({ target: event.target });
       });
     }
-    if (sampleTable.filter.elements.searchByDate) {
-      sampleTable.filter.elements.searchByDate.addEventListener(
-        "change",
-        (event) => {
-          console.log("Date filter changed");
-          render(event);
-        },
-      );
-      sampleTable.filter.elements.searchByDate.addEventListener(
-        "input",
-        debounce((event) => {
-          console.log("Date filter input");
-          render(event);
-        }, 500),
-      );
-      if (sampleTable.filter.elements.searchByCustomer) {
-        sampleTable.filter.elements.searchByCustomer.addEventListener(
-          "change",
-          (event) => {
-            console.log("Customer filter changed");
-            render(event);
-          },
-        );
-        const clearButtons = sampleTable.filter.container.querySelectorAll(
-          'button[name="clear"]',
-        );
-        clearButtons.forEach((button) => {
-          button.addEventListener("click", (event) => {
-            console.log(
-              "Clear button clicked for:",
-              event.target.dataset.field,
-            );
-            render(event);
-          });
-        });
-      }
-    }
+
+    console.log("Button setup complete. Found:", {
+      first: !!firstButton,
+      prev: !!prevButton,
+      next: !!nextButton,
+      last: !!lastButton,
+    });
+
     await render();
   } catch (error) {
     console.error("Init error:", error);

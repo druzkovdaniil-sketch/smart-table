@@ -38,7 +38,6 @@ export function initFiltering(elements) {
       "value:",
       action?.target?.value,
     );
-    console.log("Available elements:", Object.keys(elements));
 
     if (action && action.target) {
       const name = action.target.name;
@@ -56,29 +55,20 @@ export function initFiltering(elements) {
     }
 
     const filter = {};
+
     if (elements.searchByDate && elements.searchByDate.value.trim()) {
       const dateValue = elements.searchByDate.value.trim();
       console.log("Date filter input:", dateValue);
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      const yearRegex = /^\d{4}$/;
-      const yearMonthRegex = /^\d{4}-\d{2}$/;
 
-      if (
-        dateRegex.test(dateValue) ||
-        yearRegex.test(dateValue) ||
-        yearMonthRegex.test(dateValue)
-      ) {
-        filter["filter[date]"] = dateValue;
+      if (/^\d+$/.test(dateValue.replace(/[-\s]/g, ""))) {
+        filter["search"] = dateValue;
         console.log("Date filter accepted:", dateValue);
-      } else {
-        console.warn("Invalid date format, ignoring:", dateValue);
       }
     }
 
     if (elements.searchByCustomer && elements.searchByCustomer.value.trim()) {
       const customerValue = elements.searchByCustomer.value.trim();
       filter["filter[customer]"] = customerValue;
-      console.log("Customer filter:", customerValue);
     }
 
     if (elements.searchBySeller && elements.searchBySeller.value.trim()) {
